@@ -2,7 +2,7 @@ name: Auto update Regulatory Feed
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # Every 6 hours
+    - cron: '0 */6 * * *'   # Runs every 6 hours
   workflow_dispatch:
 
 jobs:
@@ -14,11 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: |
-          pip install feedparser
+      - name: Install dependency
+        run: pip install feedparser
 
-      - name: Generate HTML
+      - name: Generate merged regulatory feed
         run: |
           python <<EOF
           import feedparser
@@ -26,49 +25,63 @@ jobs:
 
           feeds = {
               "FCA (UK)": "https://www.fca.org.uk/news/rss.xml",
-              "PRA (UK)": "https://www.bankofengland.co.uk/rss/prudential-regulation",
-              "OCC (US)": "https://www.occ.gov/rss/newsroom.xml",
-              "FATF (Global)": "https://www.fatf-gafi.org/en/publications/rss.xml",
-              "OFAC (US Treasury)": "https://home.treasury.gov/system/files/126/ofac.xml",
-              "FinCEN (US)": "https://www.fincen.gov/news-room/rss.xml",
+              "Bank of England (UK)": "https://www.bankofengland.co.uk/news/rss",
+              "OCC (US)": "https://www.occ.treas.gov/rss/newsroom.xml",
+              "FATF (Global)": "https://www.fatf-gafi.org/en/publications.rss.xml",
+              "US Treasury (OFAC related)": "https://home.treasury.gov/news/rss",
+              "FinCEN (US)": "https://www.fincen.gov/rss/news.xml",
               "Reuters Business": "https://feeds.reuters.com/reuters/businessNews",
               "AP News Business": "https://feeds.apnews.com/rss/apf-business"
           }
+
+          all_entries = []
+
+          for source, url in feeds.items():
+              feed = feedparser.parse(url)
+              for entry in feed.entries[:5]:
+                  published = entry.get("published_parsed")
+                  if published:
+                      date = datetime(*published[:6])
+                  else:
+                      date = datetime.utcnow()
+
+                  all_entries.append({
+                      "source": source,
+                      "title": entry.title,
+                      "link": entry.link,
+                      "date": date
+                  })
+
+          # Sort everything by newest first
+          all_entries.sort(key=lambda x: x["date"], reverse=True)
 
           html = """
           <html>
           <head>
           <meta charset="UTF-8">
-          <title>Regulatory News Feed</title>
+          <title>Regulatory Intelligence Feed</title>
           <style>
           body { font-family: Arial; background:#ffffff; padding:20px; }
-          h2 { margin-top:40px; border-bottom:1px solid #ddd; padding-bottom:5px; }
+          h1 { margin-bottom:10px; }
+          p { color:#666; font-size:14px; }
           ul { list-style:none; padding-left:0; }
-          li { margin:8px 0; }
+          li { margin:10px 0; }
+          .source { font-size:12px; color:#999; }
           a { text-decoration:none; color:#003366; }
           a:hover { text-decoration:underline; }
           </style>
           </head>
           <body>
-          <h1>Live Regulatory Updates</h1>
+          <h1>Live Regulatory Intelligence</h1>
           <p>Last updated: """ + datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC") + """</p>
+          <ul>
           """
 
-          for name, url in feeds.items():
-              feed = feedparser.parse(url)
-              html += f"<h2>{name}</h2><ul>"
+          for item in all_entries[:25]:
+              html += f"<li><a href='{item['link']}' target='_blank'>{item['title']}</a>"
+              html += f"<div class='source'>{item['source']} | {item['date'].strftime('%Y-%m-%d')}</div></li>"
 
-              if feed.entries:
-                  for entry in feed.entries[:5]:
-                      title = entry.title
-                      link = entry.link
-                      html += f"<li><a href='{link}' target='_blank'>{title}</a></li>"
-              else:
-                  html += "<li>No recent updates available.</li>"
-
-              html += "</ul>"
-
-          html += "</body></html>"
+          html += "</ul></body></html>"
 
           with open("index.html", "w", encoding="utf-8") as f:
               f.write(html)
@@ -79,5 +92,5 @@ jobs:
           git config user.name "actions-user"
           git config user.email "actions@github.com"
           git add index.html
-          git commit -m "Auto update regulatory feed" || echo "No changes to commit"
+          git commit -m "Auto update regulatory intelligence feed" || echo "No changes"
           git push
