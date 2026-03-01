@@ -26,9 +26,6 @@ jobs:
           feeds = {
               "FCA (UK)": "https://www.fca.org.uk/news/rss.xml",
               "Bank of England (UK)": "https://www.bankofengland.co.uk/news/rss",
-              "OCC (US)": "https://www.occ.gov/rss/newsroom.xml",
-              "FATF (Global)": "https://www.fatf-gafi.org/en/publications/rss.xml",
-              "US Treasury (OFAC + FinCEN)": "https://home.treasury.gov/news/rss",
               "Reuters Business": "https://feeds.reuters.com/reuters/businessNews",
               "AP News Business": "https://feeds.apnews.com/rss/apf-business"
           }
@@ -38,10 +35,7 @@ jobs:
           for source, url in feeds.items():
               feed = feedparser.parse(url)
 
-              if not feed.entries:
-                  continue
-
-              for entry in feed.entries[:5]:
+              for entry in feed.entries[:7]:
                   published = entry.get("published_parsed")
                   if published:
                       date = datetime(*published[:6])
@@ -55,27 +49,28 @@ jobs:
                       "date": date
                   })
 
+          # Sort newest first
           all_entries.sort(key=lambda x: x["date"], reverse=True)
 
           html = """
           <html>
           <head>
           <meta charset="UTF-8">
-          <title>Regulatory Intelligence Feed</title>
+          <title>Live Regulatory Intelligence</title>
           <style>
-          body { font-family: Arial; background:#ffffff; padding:20px; }
-          h1 { margin-bottom:10px; }
-          p { color:#666; font-size:14px; }
+          body { font-family: Arial; background:#ffffff; padding:30px; }
+          h1 { margin-bottom:5px; }
+          .updated { color:#666; font-size:14px; margin-bottom:25px; }
           ul { list-style:none; padding-left:0; }
-          li { margin:12px 0; }
-          .source { font-size:12px; color:#777; }
+          li { margin:14px 0; }
+          .source { font-size:12px; color:#777; margin-top:3px; }
           a { text-decoration:none; color:#003366; font-weight:500; }
           a:hover { text-decoration:underline; }
           </style>
           </head>
           <body>
           <h1>Live Regulatory Intelligence</h1>
-          <p>Last updated: """ + datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC") + """</p>
+          <div class="updated">Last updated: """ + datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC") + """</div>
           <ul>
           """
 
