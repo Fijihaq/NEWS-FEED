@@ -27,12 +27,12 @@ jobs:
           feeds = {
               "FCA (UK)": "https://www.fca.org.uk/news/rss.xml",
               "PRA (UK)": "https://www.bankofengland.co.uk/rss/prudential-regulation",
-              "OCC (US)": "https://www.occ.gov/news-issuances/rss.xml",
+              "OCC (US)": "https://www.occ.gov/rss/newsroom.xml",
               "FATF (Global)": "https://www.fatf-gafi.org/en/publications/rss.xml",
-              "OFAC (US Treasury)": "https://home.treasury.gov/rss/office-of-foreign-assets-control",
-              "FinCEN (US)": "https://www.fincen.gov/rss.xml",
-              "Reuters Business": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best",
-              "AP News Business": "https://apnews.com/hub/business?outputType=rss"
+              "OFAC (US Treasury)": "https://home.treasury.gov/system/files/126/ofac.xml",
+              "FinCEN (US)": "https://www.fincen.gov/news-room/rss.xml",
+              "Reuters Business": "https://feeds.reuters.com/reuters/businessNews",
+              "AP News Business": "https://feeds.apnews.com/rss/apf-business"
           }
 
           html = """
@@ -57,8 +57,15 @@ jobs:
           for name, url in feeds.items():
               feed = feedparser.parse(url)
               html += f"<h2>{name}</h2><ul>"
-              for entry in feed.entries[:5]:
-                  html += f"<li><a href='{entry.link}' target='_blank'>{entry.title}</a></li>"
+
+              if feed.entries:
+                  for entry in feed.entries[:5]:
+                      title = entry.title
+                      link = entry.link
+                      html += f"<li><a href='{link}' target='_blank'>{title}</a></li>"
+              else:
+                  html += "<li>No recent updates available.</li>"
+
               html += "</ul>"
 
           html += "</body></html>"
@@ -72,5 +79,5 @@ jobs:
           git config user.name "actions-user"
           git config user.email "actions@github.com"
           git add index.html
-          git commit -m "Auto update regulatory feed"
+          git commit -m "Auto update regulatory feed" || echo "No changes to commit"
           git push
