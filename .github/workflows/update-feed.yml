@@ -1,39 +1,76 @@
-name: Update FCA Feed
+name: Auto update Regulatory Feed
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: '0 */6 * * *'   # Every 6 hours
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Fetch RSS
-        run: curl -s https://www.fca.org.uk/news/rss.xml -o feed.xml
-
-      - name: Build HTML
+      - name: Install dependencies
         run: |
-          echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>FCA Regulatory Updates</title><style>body{font-family:Arial;font-size:14px;margin:15px}.news-item{margin-bottom:12px}a{text-decoration:none;color:#1a0dab}a:hover{text-decoration:underline}</style></head><body><h3>Latest FCA Regulatory Updates</h3>" > index.html
+          pip install feedparser
 
-          awk 'BEGIN{RS="<item>";FS="\n"} NR>1{
-            match($0, /<title>([^<]+)<\/title>/, t);
-            match($0, /<link>([^<]+)<\/link>/, l);
-            if(t[1] && l[1]) {
-              print "<div class=\"news-item\"><a href=\"" l[1] "\" target=\"_blank\">" t[1] "</a></div>";
-            }
-          }' feed.xml | head -5 >> index.html
-
-          echo "</body></html>" >> index.html
-
-      - name: Commit changes
+      - name: Generate HTML
         run: |
-          git config user.name "github-actions"
+          python <<EOF
+          import feedparser
+          from datetime import datetime
+
+          feeds = {
+              "FCA (UK)": "https://www.fca.org.uk/news/rss.xml",
+              "PRA (UK)": "https://www.bankofengland.co.uk/rss/prudential-regulation",
+              "OCC (US)": "https://www.occ.gov/news-issuances/rss.xml",
+              "FATF (Global)": "https://www.fatf-gafi.org/en/publications/rss.xml",
+              "OFAC (US Treasury)": "https://home.treasury.gov/rss/office-of-foreign-assets-control",
+              "FinCEN (US)": "https://www.fincen.gov/rss.xml",
+              "Reuters Business": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best",
+              "AP News Business": "https://apnews.com/hub/business?outputType=rss"
+          }
+
+          html = """
+          <html>
+          <head>
+          <meta charset="UTF-8">
+          <title>Regulatory News Feed</title>
+          <style>
+          body { font-family: Arial; background:#ffffff; padding:20px; }
+          h2 { margin-top:40px; border-bottom:1px solid #ddd; padding-bottom:5px; }
+          ul { list-style:none; padding-left:0; }
+          li { margin:8px 0; }
+          a { text-decoration:none; color:#003366; }
+          a:hover { text-decoration:underline; }
+          </style>
+          </head>
+          <body>
+          <h1>Live Regulatory Updates</h1>
+          <p>Last updated: """ + datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC") + """</p>
+          """
+
+          for name, url in feeds.items():
+              feed = feedparser.parse(url)
+              html += f"<h2>{name}</h2><ul>"
+              for entry in feed.entries[:5]:
+                  html += f"<li><a href='{entry.link}' target='_blank'>{entry.title}</a></li>"
+              html += "</ul>"
+
+          html += "</body></html>"
+
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "actions-user"
           git config user.email "actions@github.com"
           git add index.html
-          git commit -m "Auto update FCA feed" || echo "No changes"
+          git commit -m "Auto update regulatory feed"
           git push
