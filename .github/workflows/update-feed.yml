@@ -10,16 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Fetch RSS
         run: curl -s https://www.fca.org.uk/news/rss.xml -o feed.xml
 
-            - name: Build HTML
+      - name: Build HTML
         run: |
-          curl -s https://www.fca.org.uk/news/rss.xml -o feed.xml
-
           echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>FCA Regulatory Updates</title><style>body{font-family:Arial;font-size:14px;margin:15px}.news-item{margin-bottom:12px}a{text-decoration:none;color:#1a0dab}a:hover{text-decoration:underline}</style></head><body><h3>Latest FCA Regulatory Updates</h3>" > index.html
 
           awk 'BEGIN{RS="<item>";FS="\n"} NR>1{
@@ -30,11 +28,6 @@ jobs:
             }
           }' feed.xml | head -5 >> index.html
 
-          echo "</body></html>" >> index.html
-          echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>FCA Regulatory Updates</title><style>body{font-family:Arial;font-size:14px;margin:15px}.news-item{margin-bottom:12px}a{text-decoration:none;color:#1a0dab}a:hover{text-decoration:underline}</style></head><body><h3>Latest FCA Regulatory Updates</h3>" > index.html
-          
-          awk -F'[<>]' '/<item>/,/<\/item>/ {if($2=="title") title=$3; if($2=="link") link=$3; if($2=="/item"){print "<div class=\"news-item\"><a href=\"" link "\" target=\"_blank\">" title "</a></div>"}}' feed.xml | head -5 >> index.html
-          
           echo "</body></html>" >> index.html
 
       - name: Commit changes
