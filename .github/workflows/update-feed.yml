@@ -1,8 +1,8 @@
-name: Auto update Regulatory Feed
+name: Auto update Regulatory Intelligence
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # Runs every 6 hours
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - name: Install dependency
         run: pip install feedparser
 
-      - name: Generate merged regulatory feed
+      - name: Generate unified intelligence feed
         run: |
           python <<EOF
           import feedparser
@@ -26,10 +26,9 @@ jobs:
           feeds = {
               "FCA (UK)": "https://www.fca.org.uk/news/rss.xml",
               "Bank of England (UK)": "https://www.bankofengland.co.uk/news/rss",
-              "OCC (US)": "https://www.occ.treas.gov/rss/newsroom.xml",
-              "FATF (Global)": "https://www.fatf-gafi.org/en/publications.rss.xml",
-              "US Treasury (OFAC related)": "https://home.treasury.gov/news/rss",
-              "FinCEN (US)": "https://www.fincen.gov/rss/news.xml",
+              "OCC (US)": "https://www.occ.gov/rss/newsroom.xml",
+              "FATF (Global)": "https://www.fatf-gafi.org/en/publications/rss.xml",
+              "US Treasury (OFAC + FinCEN)": "https://home.treasury.gov/news/rss",
               "Reuters Business": "https://feeds.reuters.com/reuters/businessNews",
               "AP News Business": "https://feeds.apnews.com/rss/apf-business"
           }
@@ -38,6 +37,10 @@ jobs:
 
           for source, url in feeds.items():
               feed = feedparser.parse(url)
+
+              if not feed.entries:
+                  continue
+
               for entry in feed.entries[:5]:
                   published = entry.get("published_parsed")
                   if published:
@@ -52,7 +55,6 @@ jobs:
                       "date": date
                   })
 
-          # Sort everything by newest first
           all_entries.sort(key=lambda x: x["date"], reverse=True)
 
           html = """
@@ -65,9 +67,9 @@ jobs:
           h1 { margin-bottom:10px; }
           p { color:#666; font-size:14px; }
           ul { list-style:none; padding-left:0; }
-          li { margin:10px 0; }
-          .source { font-size:12px; color:#999; }
-          a { text-decoration:none; color:#003366; }
+          li { margin:12px 0; }
+          .source { font-size:12px; color:#777; }
+          a { text-decoration:none; color:#003366; font-weight:500; }
           a:hover { text-decoration:underline; }
           </style>
           </head>
@@ -77,7 +79,7 @@ jobs:
           <ul>
           """
 
-          for item in all_entries[:25]:
+          for item in all_entries[:30]:
               html += f"<li><a href='{item['link']}' target='_blank'>{item['title']}</a>"
               html += f"<div class='source'>{item['source']} | {item['date'].strftime('%Y-%m-%d')}</div></li>"
 
