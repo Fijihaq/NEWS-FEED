@@ -14,14 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install dependency
-        run: pip install feedparser
+      - name: Install dependencies
+        run: pip install feedparser requests
 
       - name: Generate unified intelligence feed
         run: |
           python <<EOF
           import feedparser
+          import requests
           from datetime import datetime
+
+          headers = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+          }
 
           feeds = {
               "FCA (UK)": "https://www.fca.org.uk/news/rss.xml",
@@ -33,23 +38,27 @@ jobs:
           all_entries = []
 
           for source, url in feeds.items():
-              feed = feedparser.parse(url)
+              try:
+                  response = requests.get(url, headers=headers, timeout=10)
+                  feed = feedparser.parse(response.content)
 
-              for entry in feed.entries[:7]:
-                  published = entry.get("published_parsed")
-                  if published:
-                      date = datetime(*published[:6])
-                  else:
-                      date = datetime.utcnow()
+                  for entry in feed.entries[:7]:
+                      published = entry.get("published_parsed")
+                      if published:
+                          date = datetime(*published[:6])
+                      else:
+                          date = datetime.utcnow()
 
-                  all_entries.append({
-                      "source": source,
-                      "title": entry.title,
-                      "link": entry.link,
-                      "date": date
-                  })
+                      all_entries.append({
+                          "source": source,
+                          "title": entry.title,
+                          "link": entry.link,
+                          "date": date
+                      })
 
-          # Sort newest first
+              except Exception as e:
+                  continue
+
           all_entries.sort(key=lambda x: x["date"], reverse=True)
 
           html = """
